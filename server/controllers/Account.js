@@ -1,66 +1,50 @@
 const models = require('../models');
 
-const { Account } = models;
+const { Domo } = models;
 
-const loginPage = (req, res) => res.render('login');
+const makerPage = async (req, res) => {
+  try {
+    const domos = await Domo.find({ owner: req.session.account._id })
+      .select('name age').lean().exec();
 
-const signupPage = (req, res) => res.render('signup');
+    return res.render('app', { domos });
+  } catch (e) {
+    console.log(e);
 
-const logout = (req, res) => {
-  req.session.destroy();
-  return res.redirect('/');
+    return res.status(500).json({ error: 'Internal server error!' });
+  }
 };
 
-const login = (req, res) => {
-  const username = `${req.body.username}`;
-  const pass = `${req.body.pass}`;
+const makeDomo = async (req, res) => {
+  const name = `${req.body.name}`;
+  const age = `${req.body.age}`;
 
-  if (!username || !pass) {
+  if (!name || !age) {
     return res.status(400).json({ error: 'All fields are required!' });
-  }
-
-  return Account.authenticate(username, pass, (err, account) => {
-    if (err || !account) {
-      return res.status(401).json({ error: 'Wrong username or password!' });
-    }
-    req.session.account = Account.toAPI(account);
-
-    return res.json({ redirect: '/maker' });
-  });
-};
-
-const signup = async (req, res) => {
-  const username = `${req.body.username}`;
-  const pass = `${req.body.pass}`;
-  const pass2 = `${req.body.pass2}`;
-
-  if (!username || !pass || !pass2) {
-    return res.status(400).json({ error: 'All fields are required!' });
-  }
-
-  if (pass !== pass2) {
-    return res.status(400).json({ error: 'Passwords do not match!' });
   }
 
   try {
-    const hash = await Account.generateHash(pass);
-    const newAccount = new Account({ username, password: hash });
-    await newAccount.save();
-    req.session.account = Account.toAPI(newAccount);
+    const newDomo = new Domo({
+      name,
+      age,
+      owner: req.session.account._id,
+    });
+
+    await newDomo.save();
+
     return res.json({ redirect: '/maker' });
-  } catch (err) {
-    console.log(err);
-    if (err.code === 11000) {
-      return res.status(400).json({ error: 'Username already in use!' });
+  } catch (e) {
+    console.log(e);
+
+    if (e.code === 11000) {
+      return res.status(400).json({ error: 'Domo already exists!' });
     }
-    return res.status(500).json({ error: 'An error occured!' });
+
+    return res.status(400).json({ error: 'An error occurred!' });
   }
 };
 
 module.exports = {
-  loginPage,
-  signupPage,
-  login,
-  logout,
-  signup,
+  makerPage,
+  makeDomo,
 };

@@ -1,5 +1,5 @@
-// eslint-disable-next-line import/no-extraneous-dependencies
 require('dotenv').config();
+
 const path = require('path');
 const express = require('express');
 const compression = require('compression');
@@ -12,46 +12,44 @@ const session = require('express-session');
 const RedisStore = require('connect-redis').default;
 const redis = require('redis');
 
-
 const router = require('./router.js');
 
-
 const port = process.env.PORT || process.env.NODE_PORT || 3000;
-
-
 const dbURI = process.env.MONGODB_URI || 'mongodb://127.0.0.1/DomoMaker';
-mongoose.connect(dbURI).catch((err) => {
-  if (err) {
+
+
+
+mongoose.connect(dbURI).catch((e) => {
+  if (e) {
     console.log('Could not connect to database');
-    throw err;
+    throw e;
   }
 });
 
 
+
 const redisClient = redis.createClient({
-  username: 'default',
-  password: process.env.REDIS_PASSWORD,
-  socket: {
-    host: 'redis-16730.c1.us-central1-2.gce.redns.redis-cloud.com',
-    port: 16730,
-  },
+  url: process.env.REDISCLOUD_URL,
 });
 
+redisClient.on('error', (e) => console.log('Redis Client error', e));
 
-redisClient.on('error', (err) => console.log('Redis Client Error', err));
 redisClient.connect().then(() => {
   const app = express();
+
   app.use(helmet());
-  app.use('/assets', express.static(path.resolve(`${__dirname}/../hosted`)));
+  app.use('/assets', express.static(path.resolve(`${__dirname}/../hosted/`)));
   app.use(favicon(`${__dirname}/../hosted/img/favicon.png`));
   app.use(compression());
   app.use(bodyParser.urlencoded({ extended: true }));
   app.use(bodyParser.json());
 
   app.use(session({
-    key: 'sessionid',
-    store: new RedisStore({ client: redisClient }),
-    secret: 'Domo Arigato',
+    key: 'sessionID',
+    store: new RedisStore({
+      client: redisClient,
+    }),
+    secret: 'Domo Arigatou',
     resave: false,
     saveUninitialized: false,
   }));
@@ -62,10 +60,11 @@ redisClient.connect().then(() => {
 
   router(app);
 
-  app.listen(port, (err) => {
-    if (err) {
-      throw err;
+  app.listen(port, (e) => {
+    if (e) {
+      throw e;
     }
+
     console.log(`Listening on port ${port}`);
   });
 });
